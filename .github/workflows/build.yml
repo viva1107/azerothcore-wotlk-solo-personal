@@ -1,0 +1,65 @@
+name: Build AzerothCore
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # 如果你的分支带modules子模块
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git cmake make gcc g++ \
+            libmysqlclient-dev \
+            libssl-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libncurses-dev \
+            libace-dev \
+            zlib1g-dev \
+            libboost-all-dev
+
+      - name: 缓存编译产物（ccache）
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: 配置 CMake
+        run: |
+          mkdir -p build && cd build
+          cmake ../ \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DTOOLS_BUILD=all \
+            -DSCRIPTS=static \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: 编译
+        run: |
+          cd build
+          make -j $(nproc)
+
+      - name: 打包编译产物
+        run: |
+          tar -czf ac-build.tar.gz -C build bin
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: azerothcore-build
+          path: ac-build.tar.gz
+          retention-days: 7
