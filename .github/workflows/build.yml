@@ -20,18 +20,22 @@ jobs:
         with:
           submodules: recursive
 
-      - name: 安装依赖（bison + MySQL）
+      - name: 安装依赖（bison + MySQL + Boost）
         run: |
           choco install -y bison
           choco install -y mysql
+          choco install -y boost-msvc-14.3
           echo "C:\Program Files\MySQL\MySQL Server 8.0\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: 定位 Boost
         shell: pwsh
         run: |
-          $boost = Get-ChildItem C:\local -Directory -Filter "boost*" |
-                  Sort-Object Name -Descending | Select-Object -First 1
-          if (-not $boost) { throw "未找到 Boost" }
+          $dirs = @()
+          if (Test-Path C:\local) {
+            $dirs += Get-ChildItem C:\local -Directory -Filter "boost*"
+          }
+          $boost = $dirs | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $boost) { throw "未找到 Boost，安装可能失败" }
           echo "BOOST_ROOT=$($boost.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "Boost: $($boost.FullName)"
 
