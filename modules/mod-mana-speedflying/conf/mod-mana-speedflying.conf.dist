@@ -1,0 +1,391 @@
+#
+# mod-mana-speedflying configuration
+#
+# Server-side companion to the client's wxl-mana-speedflying module. That module detects the flight state
+# (climbing / leveling / diving) and already knows whether the mount carries the retail AdvFly
+# clips, so it whispers an addon message (prefix "WXLMS") to this module, which blends the mount's
+# flight speed to match. Nothing is guessed on the server, and only mounts the client drives with
+# AdvFly are affected.
+#
+
+[worldserver]
+
+########################################
+# Mount speed by flight state
+########################################
+
+#
+#    ManaSpeedFlying.Enable
+#        Description: Enable the module. The client link still requires ServerLink=1 in
+#                     wxl-mana-speedflying.ini on the client.
+#        Default:     1 - Enabled
+#                     0 - Disabled
+#
+
+ManaSpeedFlying.Enable = 1
+
+#
+#    ManaSpeedFlying.ClimbSpeed
+#        Description: Flight speed while climbing, as a multiplier of base run speed.
+#                     2.0 = 200%. This is the slowest of the three.
+#        Default:     2.0
+#
+
+ManaSpeedFlying.ClimbSpeed = 2.0
+
+#
+#    ManaSpeedFlying.LevelSpeed
+#        Description: Flight speed while level (or hovering). 2.8 = 280%.
+#        Default:     2.8
+#
+
+ManaSpeedFlying.LevelSpeed = 2.8
+
+#
+#    ManaSpeedFlying.DiveSpeed
+#        Description: Flight speed while diving. 8.0 = 800%. This is the fastest. Changing this (and
+#                     LevelSpeed) is enough: the module tells the client module these speeds, so the
+#                     client's HUD, particles and shake scale to them with no client-side edit.
+#        Default:     8.0
+#
+
+ManaSpeedFlying.DiveSpeed = 8.0
+
+#
+#    ManaSpeedFlying.BlendMs
+#        Description: Default blend time, in milliseconds, for state changes other than a dive or
+#                     a pull-out. It is spread over the climb <-> dive span, so a smaller hop
+#                     (for example level -> climb) takes proportionally less. Raise it for a longer,
+#                     lazier blend; lower it to let the speed react faster.
+#        Default:     5500
+#
+
+ManaSpeedFlying.BlendMs = 5500
+
+#
+#    ManaSpeedFlying.DiveMs
+#        Description: Time, in milliseconds, for the speed to build from wherever it is up to
+#                     DiveSpeed when a dive begins. The curve starts with a small kick so the dive
+#                     responds at once, then keeps accelerating -- faster and faster -- instead of
+#                     snapping to speed. Lower it for an even punchier dive.
+#        Default:     4000
+#
+
+ManaSpeedFlying.DiveMs = 4000
+
+#
+#    ManaSpeedFlying.GlideMs
+#        Description: Time, in milliseconds, for a full dive to bleed back to LevelSpeed. Scaled by
+#                     how much speed is actually being shed against the DiveSpeed - LevelSpeed
+#                     drop, so pulling out of a shallow dive recovers sooner than a full one. The
+#                     curve eases in, so the mount holds most of its speed at first and then slows
+#                     hard before settling back to level.
+#        Default:     18000
+#
+
+ManaSpeedFlying.GlideMs = 18000
+
+#
+#    ManaSpeedFlying.ClimbDecelMs
+#        Description: Time, in milliseconds, to brake from a full dive straight into a climb.
+#                     Scaled by the speed actually being shed, like GlideMs. The curve eases in, so
+#                     the mount holds the dive speed for a moment -- letting the built-up speed be
+#                     felt -- before braking hard into ClimbSpeed.
+#        Default:     3500
+#
+
+ManaSpeedFlying.ClimbDecelMs = 3500
+
+#
+#    ManaSpeedFlying.HoverMs
+#        Description: Time, in milliseconds, for the speed to move from a hover (a parked mount)
+#                     into whatever state it heads to next -- climb, level or dive. Fixed, not
+#                     scaled, so a take-off is always this brief accel/decel zone. Lower it for a
+#                     snappier launch.
+#        Default:     500
+#
+
+ManaSpeedFlying.HoverMs = 500
+
+#
+#    ManaSpeedFlying.SendMs
+#        Description: Shortest interval, in milliseconds, between two flight-speed updates sent to
+#                     the client while blending. Smaller is smoother but chattier. Each update that
+#                     changes the applied rate is also broadcast to everyone in range, so the blend is
+#                     quantized to 0.01 before the compare: the client ramps between the values it is
+#                     given, so a coarser step is invisible on its bar and costs fewer packets.
+#        Default:     100
+#
+
+ManaSpeedFlying.SendMs = 100
+
+#
+#    ManaSpeedFlying.TimeoutMs
+#        Description: How long the client link may stay quiet before the mount's own speed is
+#                     restored. The client heartbeats about once a second, so this only trips when
+#                     the client module is unloaded, disabled or crashed. 0 disables the timeout.
+#        Default:     2500
+#
+
+ManaSpeedFlying.TimeoutMs = 2500
+
+#
+#    ManaSpeedFlying.BoostAdd
+#        Description: Speed the button boost adds to the glide, as a multiplier of base run speed.
+#                     4.0 = 400%. It is added to the mount's current speed, so a boost can carry a
+#                     glide past the dive ceiling; the added speed then bleeds back to the state's
+#                     normal speed over BoostFadeMs. The total is capped by BoostSpeed.
+#        Default:     4.0
+#
+
+ManaSpeedFlying.BoostAdd = 4.0
+
+#
+#    ManaSpeedFlying.BoostSpeed
+#        Description: Hard ceiling a boost may lift the mount to, as a multiplier of base run speed.
+#                     16.0 = 1600%. It is raised to at least the fastest configured state speed if
+#                     set lower, so it can never clamp normal (unboosted) flight. A boost adds
+#                     BoostAdd to the current speed, up to this value.
+#        Default:     16.0
+#
+
+ManaSpeedFlying.BoostSpeed = 16.0
+
+#
+#    ManaSpeedFlying.BoostFadeMs
+#        Description: How long, in milliseconds, a boost's added speed takes to bleed back to the
+#                     glide the mount already had. The decay is fast at first and then slow. Because
+#                     the boost is an offset on the running blend, the speed returns to the exact
+#                     glide it had before, not to the plain state speed. Lower it for a snappier
+#                     reward; it is independent of the ordinary dive glide (GlideMs).
+#        Default:     4000
+#
+
+ManaSpeedFlying.BoostFadeMs = 4000
+
+#
+#    ManaSpeedFlying.BoostCarryPct
+#        Description: Fraction (0..1) of a boost's added speed that is folded into the ordinary
+#                     glide instead of the short boost fade. At 0.50, half of every boost is
+#                     replenished as glide time and bleeds off on the long dive-glide curve, so the
+#                     mount still carries speed seconds after the burst is gone. 0 makes the boost a
+#                     pure short burst. A boost spent while climbing banks its carried half (a climb
+#                     is not a glide, so there is nothing to fold into *during* the climb); the
+#                     moment you level out, the still-running burst is folded into the glide and
+#                     the banked half is spent as extra glide time (a full BoostAdd of carry gets
+#                     BoostGlidePct of a GlideMs) -- so the built-up speed does not empty in three or
+#                     four seconds, and the bar glides out instead of bumping up first. The carried
+#                     speed never lifts the base glide above DiveSpeed (the fastest state): any boost
+#                     speed past that stays in the short fade, so a boost spent at or near the dive
+#                     ceiling empties on BoostFadeMs instead of stretching the pull-out that follows.
+#        Default:     0.50
+#
+
+ManaSpeedFlying.BoostCarryPct = 0.50
+
+#
+#    ManaSpeedFlying.BoostGlidePct
+#        Description: Fraction (0..1) of the ordinary dive glide (GlideMs) that a boost's carried
+#                     speed is allowed to buy. It exists so a boost empties before the next stack
+#                     recharges: a full BoostAdd of carry buys this fraction of GlideMs, not the
+#                     whole thing, and the glide a boost lands on is not restarted on the full
+#                     pull-out curve. Chained or banked stacks cannot buy more than one BoostAdd of
+#                     glide. Lower it to make a boost bleed off faster (less time at boost speed);
+#                     1.0 restores the old behaviour where a boost paid a whole GlideMs.
+#        Default:     0.70
+#
+
+ManaSpeedFlying.BoostGlidePct = 0.70
+
+#
+#    ManaSpeedFlying.BoostMaxStacks
+#        Description: Most boost stacks the button may hold (0..3). Stacks build on a timer (see
+#                     StackIntervalMs / StackDiveIntervalMs); each boost spends one and there is no
+#                     cooldown, so several can be chained at once.
+#        Default:     3
+#
+
+ManaSpeedFlying.BoostMaxStacks = 3
+
+#
+#    ManaSpeedFlying.StackIntervalMs
+#        Description: Time, in milliseconds, between boost stacks in normal flight. A stack is
+#                     granted on this cadence while the mount is link-eligible, up to BoostMaxStacks.
+#        Default:     9000
+#
+
+ManaSpeedFlying.StackIntervalMs = 9000
+
+#
+#    ManaSpeedFlying.StackDiveIntervalMs
+#        Description: Time, in milliseconds, between boost stacks while diving -- the faster cadence
+#                     that makes a dive worth doing. A stack is granted on this cadence while the
+#                     mount is link-eligible, up to BoostMaxStacks.
+#        Default:     3000
+#
+
+ManaSpeedFlying.StackDiveIntervalMs = 3000
+
+########################################
+# Talent tree
+########################################
+
+#
+#    Talents.Enable
+#        Description: Enable the speedflying talent tree. Points are earned per character by flying
+#                     on an AdvFly mount and spent on three branches (Dive, Glide, Wings) of four tiers
+#                     each. With this off, no points are earned or spent and the panel's learn and
+#                     refund requests are refused.
+#        Default:     1 - Enabled
+#                     0 - Disabled
+#
+
+Talents.Enable = 1
+
+#
+#    Talents.MaxPoints
+#        Description: Lifetime points one character may ever earn. Filling one branch costs 10 points
+#                     (3+3+3+1); the two 1-point bridges (16 Still Air, 17 Tucked Wings) cost 1 each
+#                     and are what open the Glide and Wings branches. 13 = a full 10-point branch +
+#                     both bridges + the first point they unlock next door. At the cap the yard meter
+#                     stops charging and the panel says every point is earned.
+#        Default:     13
+#
+
+Talents.MaxPoints = 13
+
+#
+#    Talents.BaseYards
+#        Description: Yards of flight that earn the *first* talent point. Every point after it costs
+#                     Talents.YardStep more than the point before, so the tree gets longer as it fills:
+#                     with the default 1.0 the curve doubles -- 500, 1000, 2000 ... yd, about 8.2M
+#                     yards for all 13. A dive counts as Talents.DiveAccrual times its distance (1.5
+#                     by default, so diving pays best). Glide talent 7 (Slipstream, 3 ranks) shortens
+#                     the step by 12% per rank -- it
+#                     shortens the curve, it does not bank yards faster. Lower BaseYards or YardStep to
+#                     make the tree faster to fill.
+#        Default:     500.0
+#
+
+Talents.BaseYards = 500.0
+
+#
+#    Talents.YardStep
+#        Description: How much more each point costs than the point before it, as a fraction: 1.0 means
+#                     each point needs twice the yards of the one before, 0.33 means a third more, 0
+#                     makes every point cost BaseYards. Beware: at 1.0 the last point alone costs 500 *
+#                     2^11 = 1,024,000 yards, which is a very long climb.
+#        Default:     1.0
+#
+
+Talents.YardStep = 1.0
+
+#
+#    Talents.MaxPointsPerMinute
+#        Description: Most points one character may earn in a rolling minute. Without it an AFK orbit
+#                     is the whole economy. Each point leaves the window exactly 60 s after it was
+#                     paid rather than the window resetting, so a steady flight earns this many a
+#                     minute for as long as it flies. 0 removes the cap.
+#        Default:     4
+#
+
+Talents.MaxPointsPerMinute = 4
+
+#
+#    Talents.RespecCost
+#        Description: Copper charged for one respec (a single branch or the whole tree). The default
+#                     is 0, so a respec is free and instant. A character that cannot afford it is
+#                     refused, and nothing is refunded.
+#        Default:     0
+#
+
+Talents.RespecCost = 0
+
+#
+#    Talents.FlushMs
+#        Description: How often (ms) the dirty points/ranks of every online character are written
+#                     back to the character database. A graceful logout and a world shutdown flush
+#                     too, so this is only the ceiling on what a server crash can cost.
+#        Default:     20000
+#
+
+Talents.FlushMs = 20000
+
+#
+#    Talents.TeleportYards
+#        Description: A single accrual tick covering more yards than this is a teleport, a login
+#                     adoption or a taxi handover, not flight, and earns nothing. Raise it only for
+#                     builds whose legitimate per-tick distance can exceed it.
+#        Default:     200.0
+#
+
+Talents.TeleportYards = 200.0
+
+#
+#    Talents.DiveAccrual
+#        Description: Distance multiplier while diving: 1.5 means a yard flown heading down earns
+#                     1.5 yards toward the next point, which is what makes diving pay best. 1.0
+#                     removes the bonus.
+#        Default:     1.5
+#
+
+Talents.DiveAccrual = 1.5
+
+#
+#    ManaSpeedFlying.SpeedCapPct
+#        Description: Ceiling a talent may raise the *base* state speeds to, as a percentage of base
+#                     run speed: 1600.0 = 1600%. Only Dive talent 3 (Terminal Velocity) raises a
+#                     state speed, and the boost ceiling is derived from the fastest of the three
+#                     states, so this one cap bounds both. It is applied to ClimbSpeed, LevelSpeed
+#                     and DiveSpeed before that derivation -- clamping the boost ceiling alone would
+#                     be silently undone by the max(). Raising this is the difference between a
+#                     160%-dive build and an uncapped one.
+#        Default:     1600.0
+#
+
+ManaSpeedFlying.SpeedCapPct = 1600.0
+
+########################################
+# The talents themselves (no keys)
+########################################
+#
+# Every talent effect strength follows one rule: the *base* value is the existing
+# ManaSpeedFlying.* key above, and the talent is a hardcoded percentage of it. "Steep Descent" is
+# -8% of ManaSpeedFlying.DiveMs per rank, so it is tuned through DiveMs and adds no key of its own.
+# The list below records which key each talent moves, for operators raising a base value.
+#
+#   id  branch  tier  name                 max  effect
+#    1  Dive    1     Steep Descent          3  -8%  ManaSpeedFlying.DiveMs per rank
+#    3  Dive    2     Terminal Velocity      3  +6%  ManaSpeedFlying.DiveSpeed per rank (cap above)
+#    2  Dive    2     Held Breath            3  +15% ManaSpeedFlying.ClimbDecelMs per rank
+#    4  Dive    3     Shallow Pull           3  +15 degrees kept on a pull-out per rank
+#    5  Dive    4     Aftershock             1  releasing the boost key into a dive lands at once
+#    6  Glide   1     Long Glide             3  +12% ManaSpeedFlying.GlideMs per rank
+#    7  Glide   2     Slipstream             3  -12% of Talents.YardStep per rank (see BaseYards)
+#    8  Glide   2     Banked Momentum        3  +10 points of ManaSpeedFlying.BoostCarryPct per rank
+#   10  Glide   3     Skyward Path           3  +10% ManaSpeedFlying.LevelSpeed per rank of glide elevation
+#    9  Glide   4     Twin Vault             1  +1 ManaSpeedFlying.BoostMaxStacks: a fourth boost stack
+#   14  Wings   1     Smoothed Plumage       3  client-side only: dive shake, speed-mote density
+#   12  Wings   2     Steady Wings           3  -8%  ManaSpeedFlying.StackIntervalMs per rank
+#   11  Wings   2     Diving Wings           3  -10% ManaSpeedFlying.StackDiveIntervalMs per rank
+#   13  Wings   3     Iron Wings             3  +8%  ManaSpeedFlying.BoostAdd per rank
+#   15  Wings   4     Rising Current         1  +40% a climb keeps its entered speed
+#   16  Dive    3     Still Air              1  client-side: +10 degrees to the climb threshold,
+#                                              and opens the Glide branch
+#   17  Glide   3     Tucked Wings           1  client-side: the dive needs 10 degrees steeper,
+#                                              and opens the Wings branch
+#
+# Tier 1 in a branch is free to buy. Tiers 2 and 3 of a branch open only once the tier above them is at
+# full rank, so one branch costs 3+3+3+1 = 10 points to fill with one capstone. Tier 2 is a *pick*: of
+# the two talents in it only one may hold a rank at a time -- refund one before buying the other.
+#
+# The two bridges (16, 17) are the exception to both rules. They stand beside the branch's own tier-3
+# talent but do not count toward its completion and cannot be refused as its rival, so Shallow Pull and
+# Still Air can be ranked together and the capstone below stays reachable. A bridge itself needs no tier
+# above it: it is the way in. A point in 16 opens the Glide branch (id 6, 7, 8, 10 and 9 are refused
+# with 'tree-locked' until then), and a point in 17 opens Wings. Dive is the entry branch and is always
+# open, which is what keeps the graph acyclic. Refunding a bridge refunds the rank, never the points
+# spent in the branch it opened: those keep their rank and only stop accepting new ones.
+#
+# Held Breath and Rising Current both scale ClimbDecelMs. Their ranks are summed into one
+# multiplier, not compounded one after the other.
