@@ -1,65 +1,61 @@
-name: Build AzerothCore
+name: Build AzerothCore (Windows)
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
-  workflow_dispatch:  # 允许手动触发
+    branches: [ main ]
+  workflow_dispatch:   # 手动触发
+
+env:
+  BUILD_TYPE: RelWithDebInfo
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: windows-2022
+
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
         with:
-          submodules: recursive   # 如果你的分支带modules子模块
+          submodules: recursive
 
-      - name: 安装依赖
+      - name: 安装依赖（bison + MySQL）
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git cmake make gcc g++ ccache \
-            libmysqlclient-dev \
-            libssl-dev \
-            libbz2-dev \
-            libreadline-dev \
-            libncurses-dev \
-            libace-dev \
-            zlib1g-dev \
-            libboost-all-dev
+          choco install -y bison
+          choco install -y mysql
+          echo "C:\Program Files\MySQL\MySQL Server 8.0\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-      - name: 缓存编译产物（ccache）
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-ccache-
+      - name: 定位 Boost
+        shell: pwsh
+        run: |
+          $boost = Get-ChildItem C:\local -Directory -Filter "boost*" |
+                  Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $boost) { throw "未找到 Boost" }
+          echo "BOOST_ROOT=$($boost.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Boost: $($boost.FullName)"
 
       - name: 配置 CMake
-        run: |
-          mkdir -p build && cd build
-          cmake ../ \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DTOOLS_BUILD=all \
-            -DSCRIPTS=static \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: >
+          cmake -B build -S .
+          -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DBOOST_ROOT=${{ env.BOOST_ROOT }}
+          -DMYSQL_INCLUDE_DIR="C:\Program Files\MySQL\MySQL Server 8.0\include"
+          -DMYSQL_LIBRARY="C:\Program Files\MySQL\MySQL Server 8.0\lib\libmysql.lib"
+          -DTOOLS_BUILD=all
+          -DSCRIPTS=static
 
       - name: 编译
-        run: |
-          cd build
-          make -j $(nproc)
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
 
-      - name: 打包编译产物
+      - name: 打包产物
         run: |
-          tar -czf ac-build.tar.gz -C build bin
+          7z a ac-build-windows.7z ".\build\bin\${{ env.BUILD_TYPE }}\*"
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: azerothcore-build
-          path: ac-build.tar.gz
+          name: azerothcore-build-windows
+          path: ac-build-windows.7z
           retention-days: 7
